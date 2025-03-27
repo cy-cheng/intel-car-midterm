@@ -5,7 +5,7 @@
 #include <SPI.h>
 
 // RFID variables
-// 引入 SPI 程式庫與 MFRC522 程式庫
+// 引入 SPI 程式庫與 MFRC522 程式庫 //
 #define RST_PIN 49
 #define SS_PIN 53
 // 設定重設腳位與 SPI 介面裝置選擇腳位
