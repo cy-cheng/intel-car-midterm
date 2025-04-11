@@ -7,7 +7,7 @@ import time
 import numpy as np
 import pandas
 from BTinterface import BTInterface
-from maze import Action, Maze
+from maze import Maze
 from score import ScoreboardServer, ScoreboardFake
 
 logging.basicConfig(
@@ -38,8 +38,8 @@ def parse_args():
 
 def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: str):
     maze = Maze(maze_file)
-    point = ScoreboardServer(team_name, server_url)
-    # point = ScoreboardFake("your team name", "data/fakeUID.csv") # for local testing
+    # judge = ScoreboardServer(team_name, server_url)
+    judge = ScoreboardFake("your team name", "src/python/data/fakeUID.csv") # for local testing
     interface = BTInterface(port=bt_port)
     # TODO : Initialize necessary variables
 
@@ -50,15 +50,23 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
     elif mode == "1":
         log.info("Mode 1: Self-testing mode.")
 
-        interface.start()
+        # interface.start()
+
+        pathFinder = Maze("src/python/data/small_maze.csv")
+
+        pathFinder.print_graph()
 
         while True:
-            interface.bt.serial_write_string("s")
             str = interface.bt.serial_read_string()
 
             if str != "":
-                log.info("Received: %s", str.split(" ")[1][:-1])
+                print(str)
+                log.info("Received: %s", str)
+                # pos, id = str.split(" ")
+                # judge.add_UID(id)
+                # pathFinder.set_current_pos(pos)
 
+                # interface.bt.serial_write_string(pathFinder.nextTarget())
 
     else:
         log.error("Invalid mode")

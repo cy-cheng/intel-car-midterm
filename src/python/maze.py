@@ -1,6 +1,7 @@
 import csv
 import logging
 import math
+import queue
 from enum import IntEnum
 from typing import List
 
@@ -9,68 +10,80 @@ import pandas
 
 from node import Direction, Node
 
+graph = []
+
+dir_char = ["f", "l", "b", "r"]
+turn_time = [0, 0, 0, 0] # can be [0, 1, 2, 1]
+
+def dtheta(s, t):
+    return (t - s + 4) % 4
+
 log = logging.getLogger(__name__)
 
+def dijkstra(start, dis, graph):
+    V = len(graph)
+    visited = [False] * V
+    for i in range(4):
+        if graph[start][i][0] != -1: dir = i
 
-class Action(IntEnum):
-    ADVANCE = 1
-    U_TURN = 2
-    TURN_RIGHT = 3
-    TURN_LEFT = 4
-    HALT = 5
+    dis[start] = (0, i)
 
+    q = queue.PriorityQueue()
+    q.put((0, start))
+
+    while not q.empty():
+        u = q.get()[1]
+        visited[u] = True
+
+        for i in range(4):
+            v = graph[u][i][0]
+            if v == -1 or visited[v]: continue
+
+            if dis[v][0] > dis[u][0] + turn_time[dtheta(i, dis[u][1])] + graph[u][i][1]:
+                dis[v] = (dis[u][0] + turn_time[dtheta(i, dis[u][1])] + graph[u][i][1], i)
+                q.put((dis[v][0], v))
 
 class Maze:
-    def __init__(self, filepath: str):
-        # TODO : read file and implement a data structure you like
-        # For example, when parsing raw_data, you may create several Node objects.
-        # Then you can store these objects into self.nodes.
-        # Finally, add to nd_dict by {key(index): value(corresponding node)}
-        self.raw_data = pandas.read_csv(filepath).values
-        self.nodes = []
-        self.node_dict = dict()  # key: index, value: the correspond node
+    def __init__(self, file: str, start: int = 0):
+        with open(file, "r") as f:
+            maze = list(csv.reader(f))[1:]
+            V = len(maze)
 
-    def get_start_point(self):
-        if len(self.node_dict) < 2:
-            log.error("Error: the start point is not included.")
-            return 0
-        return self.node_dict[1]
+            for i in range(V):
+                for j in range(len(maze[i])):
+                    if maze[i][j] == "":
+                        maze[i][j] = "0"
+                adjacency = [(int(maze[i][j]) - 1, int(maze[i][j + 4])) for j in range(1, 5)]
 
-    def get_node_dict(self):
-        return self.node_dict
+                # NWSE -> 0123
+                adjacency[1], adjacency[2] = adjacency[2], adjacency[1]
 
-    def BFS(self, node: Node):
-        # TODO : design your data structure here for your algorithm
-        # Tips : return a sequence of nodes from the node to the nearest unexplored deadend
-        return None
+                graph.append(adjacency)
 
-    def BFS_2(self, node_from: Node, node_to: Node):
-        # TODO : similar to BFS but with fixed start point and end point
-        # Tips : return a sequence of nodes of the shortest path
-        return None
+        self.graph = graph
+        self.key_vertex = []
+        for i in range(V):
+            sum = 0
+            for j in range(4):
+                if graph[i][j][0] != -1: sum += 1
 
-    def getAction(self, car_dir, node_from: Node, node_to: Node):
-        # TODO : get the car action
-        # Tips : return an action and the next direction of the car if the node_to is the Successor of node_to
-        # If not, print error message and return 0
-        return None
+            if sum == 1: self.key_vertex.append(i)
 
-    def getActions(self, nodes: List[Node]):
-        # TODO : given a sequence of nodes, return the corresponding action sequence
-        # Tips : iterate through the nodes and use getAction() in each iteration
-        return None
+        self.dis = [[(1000, 0) for _ in range(V)] for _ in range(V)]
+        optimal_path = [["" for _ in range(V)] for _ in range(V)]
 
-    def actions_to_str(self, actions):
-        # cmds should be a string sequence like "fbrl....", use it as the input of BFS checklist #1
-        cmd = "fbrls"
-        cmds = ""
-        for action in actions:
-            cmds += cmd[action - 1]
-        log.info(cmds)
-        return cmds
+        for u in self.key_vertex:
+            dijkstra(u, self.dis[u], self.graph)
 
-    def strategy(self, node: Node):
-        return self.BFS(node)
 
-    def strategy_2(self, node_from: Node, node_to: Node):
-        return self.BFS_2(node_from, node_to)
+    def print_graph(self):
+        print(*self.graph, sep="\n")
+
+    def find_optimal_route(self):
+        pass
+
+    def set_current_pos(self, pos: int):
+        self.key_visited[pos] = True
+
+if __name__ == "__main__":
+    maze = Maze("src/python/data/small_maze.csv")
