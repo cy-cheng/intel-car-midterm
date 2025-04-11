@@ -42,13 +42,13 @@ void setupIR();
 void setupBT();
 void loopBT();
 void Walking();
-void dynamicTurningRight();
-void dynamicTurningLeft();
-void fixedTurningRight(int);
+inline void dynamicTurningRight();
+inline void dynamicTurningLeft();
+inline void fixedTurningRight(int);
 
 inline bool status(int x) { return x >= 0; }
 
-void setSpeed(int pos, int speed) {
+inline void setSpeed(int pos, int speed) {
     analogWrite(pos, abs(speed));
     if (pos == PWMA) {
         digitalWrite(AIN1, status(speed));
@@ -67,24 +67,69 @@ void setup() {
     setupBT();
 }
 
-void loop() {
-    Walking();
-    //loopRFID();
-}
-
 inline int updl() { return 2 * (digitalRead(irRead[0])) + digitalRead(irRead[1]); }
 inline int updr() { return digitalRead(irRead[3]) + 2 * (digitalRead(irRead[4])); }
 
 static int flg = 0;
 
-void Walking() {
+inline double AAvel() {
+    return 20.0;
+}
+inline double BBvel() {
+    return 20.0;
+}
+
+void walkTest2() {
+    // setSpeed(PWMA, Avel + adj[0]); // R
+    // setSpeed(PWMB, Bvel + adj[0]); // L
+    setSpeed(PWMA, AAvel()); // R
+    setSpeed(PWMB, BBvel()); // L
+
+    delay(500);
+}
+
+void walkTest() {
+    // int suml = 0;// updl();
+    // int sumr = 0;// updr();
+    // setSpeed(PWMA, Avel + adj[suml]); // R
+    // setSpeed(PWMB, Bvel + adj[sumr]); // L
+    setSpeed(PWMA, Avel + adj[0]); // R
+    setSpeed(PWMB, Bvel + adj[0]); // L
+    // delay(500);
+    return;
+    // if (!flg && suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
+    //     setSpeed(PWMA, Avel*0.3);
+    //     setSpeed(PWMB, Bvel*0.3);
+    //     while (suml == 3 || sumr == 3) {
+    //         suml = updl(), sumr = updr();
+    //         dynamicTurningRight();
+    //     }
+    //     // dynamicTurningRight(500);
+    //     // fixedTurningRight(500);
+    //     flg = 1;
+    //     suml = updl(), sumr = updr();
+    // }
+    // if (flg && suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
+    //     fixedTurningRight(1100);
+    //     flg = 0;
+    //     suml = updl(), sumr = updr();
+    // }
+}
+
+void loop() {
+    //Walking();
     loopRFID();
+    walkTest2();
+}
+
+void Walking() {
+    // loopRFID();
     // loopBT();
     int suml = updl();
     int sumr = updr();
     setSpeed(PWMA, Avel + adj[suml]); // R
     setSpeed(PWMB, Bvel + adj[sumr]); // L
-    delay(500);
+    // delay(500);
     return;
     if (!flg && suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
         setSpeed(PWMA, Avel*0.3);
@@ -105,19 +150,19 @@ void Walking() {
     }
 }
 
-void dynamicTurningRight() {
+inline void dynamicTurningRight() {
     setSpeed(PWMA, Avel * 0);
     setSpeed(PWMB, Bvel * 1.2);
     // delay(x);
 }
 
-void dynamicTurningLeft() {
+inline void dynamicTurningLeft() {
     setSpeed(PWMA, Avel * 1.2);
     setSpeed(PWMB, Bvel * 0);
     // delay(x);
 }
 
-void fixedTurningRight(int x) {
+inline void fixedTurningRight(int x) {
     setSpeed(PWMA, -Avel * 0.5 * (x / abs(x))); // R
     setSpeed(PWMB, Bvel * 0.5 * (x / abs(x))); // L
     delay(x);
@@ -132,13 +177,11 @@ void setupRFID() {
 }
 
 void loopRFID() {
-
-    setSpeed(PWMA, 0);
-    setSpeed(PWMB, 0);
-    delay(500);
+    setSpeed(PWMA, 30); // R
+    setSpeed(PWMB, 30); // L
  
-    // if (!mfrc522->PICC_IsNewCardPresent()) return;
-    // if (!mfrc522->PICC_ReadCardSerial()) return;
+    if (!mfrc522->PICC_IsNewCardPresent()) return;
+    if (!mfrc522->PICC_ReadCardSerial()) return;
 
     Serial.println(F("**Card Detected:**"));
     //BT.println(F("**Card Detected:**"));

@@ -53,7 +53,7 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
         interface.start()
 
         while True:
-            interface.bt.serial_write_string("s")
+            # interface.bt.serial_write_string("s")
             str = interface.bt.serial_read_string()
 
             if str != "":
