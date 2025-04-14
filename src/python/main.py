@@ -38,8 +38,8 @@ def parse_args():
 
 def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: str):
     maze = Maze(maze_file)
-    # judge = ScoreboardServer(team_name, server_url)
-    judge = ScoreboardFake(TEAM_NAME, "src/python/data/fakeUID.csv") # for local testing
+    judge = ScoreboardServer(team_name, server_url)
+    # judge = ScoreboardFake(TEAM_NAME, "src/python/data/fakeUID.csv") # for local testing
     interface = BTInterface(port=bt_port)
 
     if mode == "0":
@@ -47,24 +47,38 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
         # TODO : for treasure-hunting, which encourages you to hunt as many scores as possible
 
         path_finder = Maze("src/python/data/small_maze.csv")
+        path_finder.set_current_pos(0)
+        route = path_finder.find_optimal_route()
+        interface.send_instruction(path_finder.path(route[0]))
+
+        deadline = time.time() + 70
+        judge.start_game(team_name)
 
         while True:
-            car_msg = interface.bt.serial_read_string()
+            car_msg = interface.fetch_info().split()
+            if car_msg == "": continue # car_msg = [status, card_uid]
 
+            if car_msg[0] == "e":
+                interface.send_instruction(path_finder.path(route[0]))
+            else:
+                status, card_uid = car_msg[0], car_msg[1]
+                route = path_finder.find_optimal_route(deadline - time.time())
+                interface.send_instruction(path_finder.path(route[0]))
 
+                judge.add_UID(card_uid)
 
     elif mode == "1":
         log.info("Mode 1: Self-testing mode.")
 
         # interface.start()
-        interface.bt.serial_write_string("flbrx")
+        interface.send_instruction("flbrx")
 
         path_finder = Maze("src/python/data/small_maze.csv")
 
         print(maze.find_optimal_route())
 
         while True:
-            str = interface.bt.serial_read_string()
+            str = interface.fetch_info()
 
             if str != "":
                 print(str)

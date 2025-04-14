@@ -13,7 +13,7 @@ from node import Direction, Node
 graph = []
 
 dir_char = ["f", "r", "b", "l"]
-turn_time = [0, 0, 0, 0] # can be [0, 1, 2, 1]
+turn_time = [0, 1, 2, 1] # can be [0, 1, 2, 1]
 dcoords = [(0, 1), (-1, 0), (0, -1), (1, 0)] # N W S E
 
 def dtheta(s, t):
@@ -83,10 +83,13 @@ class Maze:
 
         self.value = [abs(coords[i][0]) + abs(coords[i][1]) for i in range(V)]
 
+    def path(self, dest: int):
+        return self.optimal_path[self.current_pos][dest]
+
     def print_graph(self):
         print(*self.graph, sep="\n")
 
-    def find_optimal_route(self, time_limit: int = 70):
+    def find_optimal_route(self, time_limit: int = 40):
         id = []
         for i in self.key_vertex:
             if not self.visited[i]: id.append(i)
@@ -95,20 +98,19 @@ class Maze:
 
         score = [0 for _ in range(1 << V)]
 
-        for i in range(V):
-            score[1 << i] = 1
+        for u in range(V):
+            score[1 << u] = self.value[id[u]]
 
         for msk in range(1 << V):
             score[msk] = score[msk - (msk & -msk)] + score[msk & -msk]
 
         time = [[325325 for _ in range(V)] for _ in range(1 << V)]
-        route = [[[] for _ in range(V)] for _ in range(1 << V)]
+        prev_pos = [[-1 for _ in range(V)] for _ in range(1 << V)]
 
         max_score_msk = 0
         for i in range(V):
             time[1 << i][i] = self.dis[self.current_pos][id[i]][0]
-            route[1 << i][i] = [i]
-            if score[1 << i] > score[max_score_msk]:
+            if score[1 << i] > score[max_score_msk] and time[1 << i][i] < time_limit:
                 max_score_msk = 1 << i
 
         for msk in range(1 << V):
@@ -120,9 +122,9 @@ class Maze:
                     new_msk = msk | (1 << v)
                     new_time = time[msk][u] + self.dis[id[u]][id[v]][0]
 
-                    if time[new_msk][v] > new_time:
+                    if new_time < time_limit and time[new_msk][v] > new_time:
                         time[new_msk][v] = new_time
-                        route[new_msk][v] = route[msk][u] + [v]
+                        prev_pos[new_msk][v] = u
                         if score[new_msk] > score[max_score_msk]:
                             max_score_msk = new_msk
 
@@ -131,14 +133,47 @@ class Maze:
             if time[max_score_msk][i] < time[max_score_msk][min_end]:
                 min_end = i
 
-        return [id[u] for u in route[max_score_msk][min_end]]
+        ret = []
+        while max_score_msk != 0:
+            ret.append(id[min_end])
+            min_end, max_score_msk = prev_pos[max_score_msk][min_end], max_score_msk & ~(1 << min_end)
 
+        return ret[::-1]
 
     def set_current_pos(self, pos: int):
         self.visited[pos] = True
         self.current_pos = pos
 
 if __name__ == "__main__":
-    maze = Maze("src/python/data/small_maze.csv")
+    maze = Maze("src/python/data/medium_maze.csv")
 
-    print(maze.find_optimal_route())
+    route = maze.find_optimal_route()
+
+    print(route)
+
+    import time
+    import random
+
+    while True:
+        time.sleep(1)
+
+        s = time.time()
+        print(maze.find_optimal_route(random.randint(0, 400)))
+        e = time.time()
+        print(f"Time: {e - s:.2f} s")
+        
+
+    # while True:
+    #     try:
+    #         print(maze.optimal_path[maze.current_pos][route[0]])
+    #     except:
+    #         print("No node reachable")
+
+    #     ans = input("Enter current status: ").split()
+
+    #     if ans[0] == "t":
+    #         maze.set_current_pos(route[0])
+
+    #         route = maze.find_optimal_route(int(ans[1]))
+    #     elif ans[0] == "e":
+    #         print(route)

@@ -99,9 +99,8 @@ class ScoreboardServer(Scoreboard):
 
         # start game
         log.info("Game is starting.....")
-        self._start_game(self.teamname)
 
-    def _start_game(self, teamname: str):
+    def start_game(self, teamname: str):
         payload = {"teamname": teamname}
         res = self.socket.call("start_game", payload, namespace="/team")
         log.info(res)

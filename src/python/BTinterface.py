@@ -28,13 +28,15 @@ class BTInterface:
     def get_UID(self):
         return self.bt.serial_read_byte()
 
-    def send_action(self, action):
-        # TODO : send the action to car
-        self.bt.serial_write_string("test")
+    def send_instruction(self, instruction: str):
+        self.bt.serial_write_string(instruction)
         return
 
+    def fetch_info(self):
+        return self.bt.serial_read_string()
+
     def end_process(self):
-        self.bt.serial_write_string("e")
+        self.bt.serial_write_string("Process ended by computer.")
         self.bt.disconnect()
 
 
