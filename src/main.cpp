@@ -21,11 +21,11 @@ MFRC522 *mfrc522;
 #define AIN2 3 
 
 #define MAXN 300
-#define turningBackConst 500
 
 const double Avel = 250; 
 const double Bvel = 250; 
-const double adj[4] = {0, -60, -130, -100};
+const double adj[4] = {0, -60, -160, -120};
+const double slow = 0.5;
 
 // Eyes
 const int irRead[] = {32, 34, 36, 38, 40};
@@ -57,7 +57,7 @@ inline void dynamicTurningRight();
 inline void dynamicTurningLeft();
 inline void goStraight();
 inline void stopWalking();
-inline void fixedTurningRight(int);
+inline void fixedTurningBack();
 
 inline bool status(int x) { return x >= 0; }
 
@@ -94,9 +94,11 @@ static int strflg = 0;
 
 inline void waitToStart() {
     if (strflg) return;
+    BT.println('t');
     while(true) {
         if (BT.available()) {
             char c = BT.read();
+            Queue[end++] = c;
             strflg = 1;
             break;
         }
@@ -106,70 +108,51 @@ inline void waitToStart() {
 void loopWalking() {
     int suml = updl();
     int sumr = updr();
-    setSpeed(PWMA, (Avel + adj[sumr]) * 0.5); // R
-    setSpeed(PWMB, (Bvel + adj[suml]) * 0.5); // L
+    setSpeed(PWMA, (Avel + adj[sumr]) * slow); // R
+    setSpeed(PWMB, (Bvel + adj[suml]) * slow); // L
     if (suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
         if (str < end) {
             while (suml == 3 || sumr == 3) {
                 suml = updl(), sumr = updr();
                 carControl(Queue[str]);
+                if (Queue[str] == 'x') break;
             } 
             str++;
-        } else {
-            BT.println('t');
-            // receive instructions
         } 
     }
 }
 
-// void loopWalking() {
-//     int suml = updl();
-//     int sumr = updr();
-//     setSpeed(PWMA, Avel + adj[suml]); // R
-//     setSpeed(PWMB, Bvel + adj[sumr]); // L
-//     if (!flg && suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
-//         setSpeed(PWMA, Avel*0.3);
-//         setSpeed(PWMB, Bvel*0.3);
-//         while (suml == 3 || sumr == 3) {
-//             suml = updl(), sumr = updr();
-//             dynamicTurningRight();
-//         }
-//         flg = 1;
-//         suml = updl(), sumr = updr();
-//     }
-//     if (flg && suml == 3 && sumr == 3 && digitalRead(irRead[2]) == 1) {
-//         fixedTurningRight(1100);
-//         flg = 0;
-//         suml = updl(), sumr = updr();
-//     }
-// }
-
 inline void dynamicTurningRight() {
     setSpeed(PWMA, Avel * 0.0);
-    setSpeed(PWMB, Bvel * 0.5);
+    setSpeed(PWMB, Bvel * slow);
 }
 
 inline void dynamicTurningLeft() {
-    setSpeed(PWMA, Avel * 0.5);
+    setSpeed(PWMA, Avel * slow);
     setSpeed(PWMB, Bvel * 0.0);
 }
 
 inline void goStraight() {
-    setSpeed(PWMA, Avel * 1.0);
-    setSpeed(PWMB, Bvel * 1.0);
+    setSpeed(PWMA, Avel * slow);
+    setSpeed(PWMB, Bvel * slow);
 }
 
 inline void stopWalking() {
     setSpeed(PWMA, 0);
     setSpeed(PWMB, 0);
     strflg = 0;
-    BT.println('t');
 }
 
-inline void fixedTurningRight(int x) { // Use for turning back
-    setSpeed(PWMA, Avel * -0.25); // R
-    setSpeed(PWMB, Bvel * 0.25); // L
-    delay(x);
+inline void fixedTurningBack() {
+    int suml = updl();
+    int sumr = updr();
+    while (suml || sumr || !digitalRead(irRead[2])) {
+        setSpeed(PWMA, Avel * -0.25); // R
+        setSpeed(PWMB, Bvel * 0.25); // L
+        suml = updl(), sumr = updr();
+    }
+    setSpeed(PWMA, Avel * 0); 
+    setSpeed(PWMB, Bvel * 0); 
 }
 
 inline void carControl(char cmd) {
@@ -178,7 +161,7 @@ inline void carControl(char cmd) {
             goStraight();
             break;
         case 'b':
-            fixedTurningRight(turningBackConst);
+            fixedTurningBack();
             break;
         case 'r':
             dynamicTurningRight();
@@ -202,26 +185,28 @@ void setupRFID() {
 }
 
 void loopRFID() {
+    mfrc522->PCD_Init();
+    
     if (!mfrc522->PICC_IsNewCardPresent()) return;
     if (!mfrc522->PICC_ReadCardSerial()) return;
 
-    Serial.println(F("**Card Detected:**"));
-    //BT.println(F("**Card Detected:**"));
+    // Serial.println(F("**Card Detected:**"));
+    // BT.println(F("**Card Detected:**"));
     
-    Serial.print("ID: ");
-    BT.print("ID: ");
+    // Serial.print("ID: ");
+    // BT.print("ID: ");
     
     for (byte i = 0; i < mfrc522->uid.size; i++) {
         char buffer[3];
         sprintf(buffer, "%02X", mfrc522->uid.uidByte[i]);
-        Serial.print(buffer);
+        // Serial.print(buffer);
         BT.print(buffer);
-        if (i < mfrc522->uid.size - 1) {
+        // if (i < mfrc522->uid.size - 1) {
             // Serial.print(":");
             // BT.print(":");
-        }
+        // }
     }
-    Serial.println();
+    // Serial.println();
     BT.println();
     BT.flush();
    
@@ -257,7 +242,6 @@ void loopBT() {
         Serial.print(c);
         BT.println(c);
     }
-    // if (BT.available()) {
     while (BT.available()) {
         char c = BT.read();
         Queue[end++] = c;
