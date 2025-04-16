@@ -21,7 +21,7 @@ def dtheta(s, t):
 
 log = logging.getLogger(__name__)
 
-def dijkstra(start, dis, graph, optimal_path, coords):
+def dijkstra(start, dis, graph, optimal_path, coords, flg = False):
     V = len(graph)
     visited = [False] * V
     for i in range(4):
@@ -42,7 +42,8 @@ def dijkstra(start, dis, graph, optimal_path, coords):
 
             new_dis = dis[u][0] + turn_time[dtheta(i, dis[u][1])] + d
             if dis[v][0] > new_dis:
-                coords[v] = (coords[u][0] + dcoords[i][0], coords[u][1] + dcoords[i][1])
+                if flg:
+                    coords[v] = (coords[u][0] + dcoords[i][0], coords[u][1] + dcoords[i][1])
                 dis[v] = (new_dis, i)
                 optimal_path[v] = optimal_path[u] + dir_char[dtheta(i, dis[u][1])]
                 q.put((dis[v][0], v))
@@ -75,10 +76,13 @@ class Maze:
         self.dis = [[(325325, 0) for _ in range(V)] for _ in range(V)]
         self.optimal_path = [["" for _ in range(V)] for _ in range(V)]
         self.visited = [False for _ in range(V)]
-        self.current_pos = 0
+        self.current_pos = start
         coords = [(0, 0) for _ in range(V)]
 
+        dijkstra(start, self.dis[start], self.graph, self.optimal_path[start], coords, flg = True)
+
         for u in self.key_vertex:
+            if u == start: continue
             dijkstra(u, self.dis[u], self.graph, self.optimal_path[u], coords)
 
         self.value = [abs(coords[i][0]) + abs(coords[i][1]) for i in range(V)]
@@ -145,7 +149,12 @@ class Maze:
         self.current_pos = pos
 
 if __name__ == "__main__":
-    maze = Maze("src/python/data/medium_maze.csv")
+    maze = Maze("src/python/data/final_maze.csv", 1)
+    maze.set_current_pos(0)
+
+    print([maze.value[u] for u in maze.key_vertex])
+
+    exit(0)
 
     route = maze.find_optimal_route()
 
@@ -158,7 +167,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
         s = time.time()
-        print(maze.find_optimal_route(random.randint(0, 400)))
+        print(maze.find_optimal_route(random.randint(0, 4000)))
         e = time.time()
         print(f"Time: {e - s:.2f} s")
         

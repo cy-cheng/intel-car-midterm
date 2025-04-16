@@ -29,11 +29,16 @@ class BTInterface:
         return self.bt.serial_read_byte()
 
     def send_instruction(self, instruction: str):
+        log.info(f"Send instruction: {instruction}")
         self.bt.serial_write_string(instruction)
         return
 
     def fetch_info(self):
-        return self.bt.serial_read_string()
+        ret = self.bt.serial_read_string()
+        if ret == "":
+            return ret
+        log.info(f"Receive message: {ret}")
+        return ret
 
     def end_process(self):
         self.bt.serial_write_string("Process ended by computer.")

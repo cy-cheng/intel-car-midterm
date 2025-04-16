@@ -38,8 +38,8 @@ def parse_args():
 
 def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: str):
     maze = Maze(maze_file)
-    judge = ScoreboardServer(team_name, server_url)
-    # judge = ScoreboardFake(TEAM_NAME, "src/python/data/fakeUID.csv") # for local testing
+    # judge = ScoreboardServer(team_name, server_url)
+    judge = ScoreboardFake(TEAM_NAME, "src/python/data/fakeUID.csv") # for local testing
     interface = BTInterface(port=bt_port)
 
     if mode == "0":
@@ -71,30 +71,62 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
         log.info("Mode 1: Self-testing mode.")
 
         # interface.start()
-        interface.send_instruction("flbrx")
+        # interface.send_instruction("fx")
 
-        path_finder = Maze("src/python/data/small_maze.csv")
+        path_finder = Maze("src/python/data/small_maze.csv", 3)
+        route = path_finder.find_optimal_route()
+        print(route)
+        interface.send_instruction(path_finder.path(route[0]) + "x")
 
-        print(maze.find_optimal_route())
+        deadline = time.time() + 70
+        # judge.start_game(team_name)
+
+        sent_uid = set() 
 
         while True:
-            str = interface.fetch_info()
+            car_msg = interface.fetch_info()
+            if car_msg == "": continue # car_msg = [status, card_uid]
+            # print("debug a")
+            if len(car_msg) > 6:
+                uid = car_msg[0:8]
+                if uid in sent_uid:
+                    print(f"Already sent {uid}, skip")
+                    continue
 
-            if str != "":
-                print(str)
-                log.info("Received: %s", str)
+                # print(f"current car_msg: {car_msg}")
+                # print(f"current uid: {uid}")
+                path_finder.set_current_pos(route[0])
+                route = path_finder.find_optimal_route()
+                while True:
+                    car_msg = interface.fetch_info()
+                    if car_msg == "": continue
+                    # print("debug b")
+                    if car_msg[0] == "t": break
 
-                # next_path = path_finder.find_optimal_route()
-                # interface.bt.serial_write_string(next_path)
+                if len(route) > 0:
+                    interface.send_instruction("b" + path_finder.path(route[0])[1:] + "x")
 
-            interface.bt.serial_write_string(input("Enter next path: "))
+                # print(f"route up: {route}")
+                # print(f"current uid: {uid}")
+                # print(f"current uid: {car_msg[0:8]}")
+                judge.add_UID(uid)
+                sent_uid.add(uid)
+            elif car_msg[0] == "t":
+                # print(f"We have received a t")
+                path_finder.set_current_pos(route[0])
+                route = path_finder.find_optimal_route()
+                if len(route) > 0:
+                    interface.send_instruction("b" + path_finder.path(route[0])[1:] + "x")
+                # print(f"route down: {route}")
 
-                # pos, id = str.split(" ")
-                # judge.add_UID(id)
-                # pathFinder.set_current_pos(pos)
-
-                # interface.bt.serial_write_string(pathFinder.nextTarget())
-
+                while len(car_msg) < 6:
+                    car_msg = interface.fetch_info()
+                # print("debug c")
+                
+                uid = car_msg[0:8]
+                print(uid)
+                judge.add_UID(uid)
+                sent_uid.add(uid)
     else:
         log.error("Invalid mode")
         sys.exit(1)
