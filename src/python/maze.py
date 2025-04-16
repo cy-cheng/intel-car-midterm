@@ -43,7 +43,7 @@ def dijkstra(start, dis, graph, optimal_path, coords, flg = False):
             new_dis = dis[u][0] + turn_time[dtheta(i, dis[u][1])] + d
             if dis[v][0] > new_dis:
                 if flg:
-                    coords[v] = (coords[u][0] + dcoords[i][0], coords[u][1] + dcoords[i][1])
+                    coords[v] = (coords[u][0] + dcoords[i][0] * d, coords[u][1] + dcoords[i][1] * d)
                 dis[v] = (new_dis, i)
                 optimal_path[v] = optimal_path[u] + dir_char[dtheta(i, dis[u][1])]
                 q.put((dis[v][0], v))
@@ -80,6 +80,8 @@ class Maze:
         coords = [(0, 0) for _ in range(V)]
 
         dijkstra(start, self.dis[start], self.graph, self.optimal_path[start], coords, flg = True)
+
+        # print(f"Start: {start}, coords: {coords[start]}")
 
         for u in self.key_vertex:
             if u == start: continue
@@ -149,10 +151,9 @@ class Maze:
         self.current_pos = pos
 
 if __name__ == "__main__":
-    maze = Maze("src/python/data/final_maze.csv", 1)
-    maze.set_current_pos(0)
+    maze = Maze("src/python/data/final_maze.csv", 7)
 
-    print([maze.value[u] for u in maze.key_vertex])
+    print([(maze.value[u], u) for u in maze.key_vertex])
 
     exit(0)
 
