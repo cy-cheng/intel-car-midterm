@@ -3,12 +3,12 @@ import csv
 import logging
 import re
 from typing import Optional, Tuple, cast
+import os
 
 import requests
 import socketio
 
 log = logging.getLogger("scoreboard")
-
 
 class Scoreboard(abc.ABC):
     """
@@ -73,6 +73,7 @@ class ScoreboardFake(Scoreboard):
             self.total_score += point
             log.info(f"A treasure is found! You got {point} points.")
             self.visit_list.add(UID_str)
+
             return point, 0
 
     def get_current_score(self):
@@ -84,9 +85,12 @@ class ScoreboardServer(Scoreboard):
     The Scoreboard class connects to the server socket and enables updating score by sending UID.
     """
 
-    def __init__(self, teamname: str, host=f"http://localhost:3000", debug=False):
+    def __init__(self, teamname: str, UID_file: str, host=f"http://localhost:3000", debug=False):
+        self.uid_positions = {}
         self.teamname = teamname
         self.ip = host
+        self.UID_file = UID_file
+        self._read_UID_file()
 
         log.info(f"{self.teamname} wants to play!")
         log.info(f"connecting to server......{self.ip}")
@@ -105,7 +109,23 @@ class ScoreboardServer(Scoreboard):
         res = self.socket.call("start_game", payload, namespace="/team")
         log.info(res)
 
-    def add_UID(self, UID_str: str) -> Tuple[int, float]:
+    def _read_UID_file(self):
+        with open(self.UID_file, "r") as f:
+            reader = csv.reader(f)
+            next(reader)
+            for row in reader:
+                uid, pos = row
+                self.uid_positions[uid] = int(pos)
+
+    def _save_UID_file(self, uid: str, pos: int):
+        with open(self.UID_file, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([uid, pos])
+            log.info(f"Saved UID {uid} at position {pos}")
+
+
+
+    def add_UID(self, UID_str: str, pos=-1) -> Tuple[int, float]:
         """Send {UID_str} to server to update score. Returns nothing."""
         log.debug(f"Adding UID: {UID_str}")
 
@@ -122,10 +142,15 @@ class ScoreboardServer(Scoreboard):
             log.error("Failed to add UID")
             return 0, 0
         res = cast(dict, res)
-        # message = res.get("message", "No message")
-        # score = res.get("score", 0)
-        # time_remaining = res.get("time_remaining", 0)
-        # log.info(message)
+        
+        if UID_str not in self.uid_positions:
+            self.uid_positions[UID_str] = pos
+            self._save_UID_file(UID_str, pos)
+
+        message = res.get("message", "No message")
+        score = res.get("score", 0)
+        time_remaining = res.get("time_remaining", 0)
+        log.info(message)
         return 0, 0
         # return score, time_remaining
 
@@ -138,6 +163,12 @@ class ScoreboardServer(Scoreboard):
             log.error(f"Failed to fetch current score: {e}")
             return None
 
+    def send_all(self, UID_file):
+        with open(UID_file, "r") as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+            for row in rows[1:]:
+                self.add_UID(row[0])
 
 class TeamNamespace(socketio.ClientNamespace):
     def on_connect(self):
@@ -157,8 +188,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     try:
-        # scoreboard = ScoreboardServer("TeamName2", "http://140.112.175.18:5000")
-        scoreboard = ScoreboardFake("TeamName", "data/fakeUID.csv")
+        scoreboard = ScoreboardServer("TeamName2", "src/python/data/realUID.csv", "http://140.112.175.18:5000")
+        # scoreboard = ScoreboardFake("TeamName", "data/fakeUID.csv")
         time.sleep(1)
 
         score, time_remaining = scoreboard.add_UID("10BA617E")

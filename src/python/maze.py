@@ -41,6 +41,7 @@ def dijkstra(start, dis, graph, optimal_path, coords, flg = False):
             if v == -1 or visited[v]: continue
 
             new_dis = dis[u][0] + turn_time[dtheta(i, dis[u][1])] + d
+            # print(f"u: {u}, v: {v}, new_dis: {new_dis}")
             if dis[v][0] > new_dis:
                 if flg:
                     coords[v] = (coords[u][0] + dcoords[i][0] * d, coords[u][1] + dcoords[i][1] * d)
@@ -64,6 +65,8 @@ class Maze:
                 adjacency[1], adjacency[2] = adjacency[2], adjacency[1]
 
                 graph.append(adjacency)
+
+        # print(f"Graph: {graph}")
 
         self.graph = graph
         self.key_vertex = []
@@ -93,9 +96,10 @@ class Maze:
         return self.optimal_path[self.current_pos][dest]
 
     def print_graph(self):
+        print(self.key_vertex)
         print(*self.graph, sep="\n")
 
-    def find_optimal_route(self, time_limit: int = 40):
+    def find_optimal_route(self, time_limit: int = 70):
         id = []
         for i in self.key_vertex:
             if not self.visited[i]: id.append(i)
@@ -150,8 +154,24 @@ class Maze:
         self.visited[pos] = True
         self.current_pos = pos
 
+    def mark_as_visited(self, UID_file: str):
+        import csv
+        with open(UID_file, "r") as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+            for row in rows[1:]:
+                uid, pos = row
+                pos = int(pos)
+                if pos in self.key_vertex:
+                    self.visited[pos] = True
+                    log.info(f"Marking {uid} as visited at position {pos}")
+                else:
+                    log.warning(f"Invalid UID: {uid} at position {pos}")
+
 if __name__ == "__main__":
-    maze = Maze("src/python/data/final_maze.csv", 7)
+    maze = Maze("src/python/data/cross_maze.csv", 0)
+    maze.mark_as_visited("src/python/data/realUID.csv")
+    maze.print_graph()
 
     print([(maze.value[u], u) for u in maze.key_vertex])
 
@@ -159,7 +179,7 @@ if __name__ == "__main__":
 
     route = maze.find_optimal_route()
 
-    print(route)
+    # print(f"route: {route}")
 
     import time
     import random
