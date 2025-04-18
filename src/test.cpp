@@ -13,10 +13,10 @@
 MFRC522 *mfrc522;
 
 // Motor variable
-#define PWMB 13 // Right
+#define PWMB 13 // Left
 #define BIN1 5 
 #define BIN2 6 
-#define PWMA 12 // Left
+#define PWMA 12 // Right
 #define AIN1 2 
 #define AIN2 3 
 
@@ -27,8 +27,8 @@ static int suml = 0, sumr = 0;
 const double Avel = 250; 
 const double Bvel = 250; 
 const double adj[4] = {0, -60, -160, -120};
-const double slow = 0.5;
-const double backSlow = 0.3;
+const double slow = 0.6;
+const double backSlow = 0.5;
 
 // Eyes
 const int irRead[] = {32, 34, 36, 38, 40};
@@ -86,7 +86,7 @@ inline int updl() { return 2 * (digitalRead(irRead[0])) + digitalRead(irRead[1])
 inline int updr() { return digitalRead(irRead[3]) + 2 * (digitalRead(irRead[4])); }
 
 void loop() {
-    waitToStart();
+    // waitToStart();
     loopWalking();
     loopRFID();
     loopBT();
@@ -157,11 +157,17 @@ inline void fixedTurningBack() {
     sumr = updr();
     while (!digitalRead(irRead[4]) || digitalRead(irRead[0]) || digitalRead(irRead[1]) || digitalRead(irRead[2]) || digitalRead(irRead[3])) {
         setSpeed(PWMA, Avel * -backSlow);
-        setSpeed(PWMB, Bvel * backSlow);
+        setSpeed(PWMB, Bvel * backSlow * 0.85);
         suml = updl(), sumr = updr();
     }
-    setSpeed(PWMA, Avel * slow); 
-    setSpeed(PWMB, Bvel * slow); 
+    // while (true) {
+    //     setSpeed(PWMA, 0);
+    //     setSpeed(PWMB, 0);
+    // }
+    // setSpeed(PWMA, Avel * slow); 
+    // setSpeed(PWMB, Bvel * slow); 
+    setSpeed(PWMA, Avel * 0); 
+    setSpeed(PWMB, Bvel * 0); 
 }
 
 inline void carControl(char cmd) {
