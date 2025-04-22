@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 // RFID variable
-#define RST_PIN 49 // 49
+#define RST_PIN 49
 #define SS_PIN 53
 MFRC522 *mfrc522;
 
@@ -21,28 +21,37 @@ MFRC522 *mfrc522;
 #define AIN2 3 
 
 // Car controlling
-static int strflg = 0;
-static int suml = 0, sumr = 0;
+int strflg = 0;
+int suml = 0, sumr = 0;
 
-const double Avel = 200; 
-const double Bvel = 210; 
-const double adj[4] = {0, -30, -100, -50};
-const double slow = 0.8;
+const double Avel = 250; 
+const double Bvel = 245; 
+// 100, 110, 010, 011, 001 
+const double adj[8] = {0, -30, -50, -40, -80, 0, -60, 0};
+const double slow = 0.7;
+const double turnSlow = 0.5;
 const double backSlow = 0.5;
-const double kd = 0.4;
+const int magicSec = 100;
+
+// PID Controller Variables
+const int err[8] = {0, 2, 5, 3, 9, 0, 7, 0};
+const double kp = 10.0; // Proportional gain
+const double ki = 0.0; // Integral gain
+const double kd = 2.0; // Derivative gain
+double lastError = 0;
+double integral = 0;
 
 // Eyes
-const int irRead[] = {32, 28, 30, 38, 40};
-const int irLed[] = {0, 0, 0, 0, 0};
-const int irNum = 5;
+const int irRead[] = {30, 32, 34, 36, 38, 40, 42};
+const int irNum = 7;
 
 // BT variables
 SoftwareSerial BT(11, 10);
 
 // Queue
 #define MAXN 300
-static char Queue[MAXN];
-static int str = 0, end = 0;
+char Queue[MAXN];
+int str = 0, end = 0;
 
 // Functions declaration
 void setupRFID();
@@ -78,31 +87,41 @@ inline void setSpeed(int pos, int speed) {
 void setup() {
     Serial.begin(9600);
     setupRFID();
-    // setupMotor();
-    // setupIR();
-    // delay(1000);
+    setupMotor();
+    setupIR();
     setupBT();
 }
 
-inline int updl() { return 2 * (digitalRead(irRead[0])) + digitalRead(irRead[1]); }
-inline int updr() { return digitalRead(irRead[3]) + 2 * (digitalRead(irRead[4])); }
-
-int flg = 0;
+inline int updl() { 
+    return 4 * (digitalRead(irRead[0])) + 2 * (digitalRead(irRead[1])) + digitalRead(irRead[2]);
+}
+inline int updr() { 
+    return 4 * (digitalRead(irRead[6])) + 2 * (digitalRead(irRead[5])) + digitalRead(irRead[4]);
+}
+inline double calculatePID(int leftValue, int rightValue) {
+    double error = leftValue - rightValue; 
+    integral += error; 
+    double derivative = error - lastError;
+    lastError = error; 
+    return (kp * error) + (ki * integral) + (kd * derivative); 
+}
+inline void resetPID() {
+    integral = lastError = 0;
+}
 
 void loop() {
-    // setSpeed(PWMA, 50);
-    // setSpeed(PWMB, 50);
-    waitToStart();
+    // waitToStart();
+    // setSpeed(PWMA, Avel * slow);
+    // setSpeed(PWMB, Bvel * slow);
+    // return;
     loopWalking();
-    // BT.println('c');
     loopRFID();
-    // loopBT();
-    // Serial.println("Hi");
+    loopBT();
 }
 
 inline void waitToStart() {
-    delay(5000);
-    BT.println('o');
+    // setSpeed(PWMA, 100);
+    // setSpeed(PWMB, 100);
     if (strflg) return;
     while(true) {
         if (BT.available()) {
@@ -114,102 +133,71 @@ inline void waitToStart() {
     }
 }
 
-int prvl = 0, prvr = 0;
-
 void loopWalking() {
-    suml = updl();
-    sumr = updr();
-    double Aspeed = (Avel + adj[sumr]);
-    double Bspeed = (Bvel + adj[suml]);
-    if (sumr < prvr) { // D control
-        Aspeed -= kd * adj[prvr];
-    }
-    if (suml < prvl) {
-        Bspeed -= kd * adj[prvl];
-    }
-    setSpeed(PWMA, Aspeed * slow); // R
-    setSpeed(PWMB, Bspeed * slow); // L
-
-    prvl = suml;
-    prvr = sumr;
-    if (suml >= 1 && sumr >= 1 && digitalRead(irRead[2]) == 1) {
+    // if (digitalRead(irRead[2]) && digitalRead(irRead[4]) && digitalRead(irRead[3])) {
+    if (digitalRead(irRead[1]) && digitalRead(irRead[5])) {
+        resetPID();
         if (str < end) {
             carControl(Queue[str]);
+            BT.println(Queue[str]);
             str++;
         } else {
             carControl('b');
             BT.println('t');
         }
-        prvl = prvr = 0;
     }
-    // if (suml >= 1 && sumr >= 1 && digitalRead(irRead[2]) == 1) {
-    //     if (flg == 0) {
-    //         carControl('r');
-    //     } else {
-    //         carControl('r');
-    //     }
-    //     flg = !flg;
-    //     prvl = prvr = 0;
-    // }
+    
+    suml = updl(); 
+    sumr = updr();
+    
+    double correction = calculatePID(err[suml], err[sumr]);
+    double rightSpeed = (Avel - kp * err[sumr]) * slow; 
+    double leftSpeed = (Bvel - kp * err[suml]) * slow; 
+
+    // double rightSpeed = (Avel + correction) * slow; 
+    // double leftSpeed = (Bvel - correction) * slow; 
+
+    setSpeed(PWMA, constrain(rightSpeed, 0, 255));  
+    setSpeed(PWMB, constrain(leftSpeed, 0, 255));
+    
+    // setSpeed(PWMA, (Avel + adj[sumr]) * slow); // R
+    // setSpeed(PWMB, (Bvel + adj[suml]) * slow); // L
 }
 
-inline void dynamicTurningRight() {
-    setSpeed(PWMA, Avel * 0);
-    setSpeed(PWMB, Bvel * slow);
-    delay(200);
-    while (digitalRead(irRead[2]) || digitalRead(irRead[3]) || !digitalRead(irRead[4])) {
+inline void dynamicTurningRight() { // TODO
+    suml = updl(), sumr = updr();
+    setSpeed(PWMA, Avel * 0.0);
+    setSpeed(PWMB, Bvel * turnSlow);
+    delay(magicSec);
+    while (suml >= 3 || sumr >= 3) {
+    // while (!digitalRead(irRead[6]) || digitalRead(irRead[5]) || digitalRead(irRead[4])) {
         suml = updl(), sumr = updr();
-        setSpeed(PWMA, Avel * 0);
-        setSpeed(PWMB, Bvel * slow * 0.5);
+        setSpeed(PWMA, Avel * 0.0);
+        setSpeed(PWMB, Bvel * turnSlow);
     }
-    setSpeed(PWMA, 0);
-    setSpeed(PWMB, 0);
 }
 
-inline void dynamicTurningLeft() {
-    setSpeed(PWMA, Avel * slow);
-    setSpeed(PWMB, Bvel * 0);
-    delay(200);
-    while (digitalRead(irRead[2]) || digitalRead(irRead[1]) || !digitalRead(irRead[0])) {
+inline void dynamicTurningLeft() { // TODO
+    // while (suml == 3 || sumr == 3) {
+    suml = updl(), sumr = updr();
+    setSpeed(PWMA, Avel * turnSlow);
+    setSpeed(PWMB, Bvel * 0.0);
+    delay(magicSec);
+    while (suml >= 3 || sumr >= 3) {
+    // while (!digitalRead(irRead[0]) || digitalRead(irRead[1]) || digitalRead(irRead[2])) {
         suml = updl(), sumr = updr();
-        setSpeed(PWMA, Avel * slow * 0.5);
-        setSpeed(PWMB, Bvel * 0);
+        setSpeed(PWMA, Avel * turnSlow);
+        setSpeed(PWMB, Bvel * 0.0);
     }
-    setSpeed(PWMA, 0);
-    setSpeed(PWMB, 0);
-
-    // setSpeed(PWMA, Avel * slow);
-    // setSpeed(PWMB, Bvel * 0.1);
-    // delay(300);
-    // while (digitalRead(irRead[1])+digitalRead(irRead[2])+digitalRead(irRead[3]) != 1) {
-    //     suml = updl(), sumr = updr();
-    //     setSpeed(PWMA, Avel * slow);
-    //     setSpeed(PWMB, Bvel * slow / 3);
-    // }
-    // setSpeed(PWMA, 0);
-    // setSpeed(PWMB, 0);
 }
 
 inline void goStraight() {
     suml = updl(), sumr = updr();
-    double Aspeed = Avel;
-    double Bspeed = Bvel;
-    if (sumr < prvr) { // D control
-        Aspeed -= kd * adj[prvr];
-    }
-    if (suml < prvl) {
-        Bspeed -= kd * adj[prvl];
-    }
-    setSpeed(PWMA, Aspeed * slow);
-    setSpeed(PWMB, Bspeed * slow);
-
-    while (suml == 3 || sumr == 3) {
-        suml = updl(), sumr = updr();
+    while (suml >= 3 && sumr >= 3) {
         setSpeed(PWMA, Avel * slow);
         setSpeed(PWMB, Bvel * slow);
+        suml = updl(), sumr = updr();
     }
-    // setSpeed(PWMA, 0);
-    // setSpeed(PWMB, 0);
 }
 
 inline void stopWalking() {
@@ -219,21 +207,19 @@ inline void stopWalking() {
 }
 
 inline void fixedTurningBack() {
-    suml = updl();
-    sumr = updr();
-    while (!digitalRead(irRead[4]) || digitalRead(irRead[0]) || digitalRead(irRead[1]) || digitalRead(irRead[2]) || digitalRead(irRead[3])) {
+    // suml = updl();
+    // sumr = updr();
+    // while (!digitalRead(irRead[6]) ||  digitalRead(irRead[3]) || digitalRead(irRead[4]) || digitalRead(irRead[5])) {
+    while (!digitalRead(irRead[6]) || digitalRead(irRead[4]) || digitalRead(irRead[5])) {
         setSpeed(PWMA, Avel * -backSlow);
-        setSpeed(PWMB, Bvel * backSlow * 0.85);
-        suml = updl(), sumr = updr();
+        setSpeed(PWMB, Bvel * backSlow * 0.9);
+        // suml = updl(), sumr = updr();
     }
-    // while (true) {
-    //     setSpeed(PWMA, 0);
-    //     setSpeed(PWMB, 0);
-    // }
-    // setSpeed(PWMA, Avel * slow); 
-    // setSpeed(PWMB, Bvel * slow); 
-    setSpeed(PWMA, Avel * 0); 
-    setSpeed(PWMB, Bvel * 0); 
+    setSpeed(PWMA, 0);
+    setSpeed(PWMB, 0);
+    delay(100);
+    // setSpeed(PWMA, Avel * turnSlow); 
+    // setSpeed(PWMB, Bvel * turnSlow); 
 }
 
 inline void carControl(char cmd) {
@@ -266,24 +252,27 @@ void setupRFID() {
 
 void loopRFID() {
     mfrc522->PCD_Init();
-    // Serial.println('w');
-
+    
     if (!mfrc522->PICC_IsNewCardPresent()) return;
     if (!mfrc522->PICC_ReadCardSerial()) return;
 
-    Serial.println(F("**Card Detected:**"));
+    // Serial.println(F("**Card Detected:**"));
     // BT.println(F("**Card Detected:**"));
     
-    Serial.print("ID: ");
+    // Serial.print("ID: ");
     // BT.print("ID: ");
     
     for (byte i = 0; i < mfrc522->uid.size; i++) {
         char buffer[3];
         sprintf(buffer, "%02X", mfrc522->uid.uidByte[i]);
-        Serial.print(buffer);
+        // Serial.print(buffer);
         BT.print(buffer);
+        // if (i < mfrc522->uid.size - 1) {
+            // Serial.print(":");
+            // BT.print(":");
+        // }
     }
-    Serial.println();
+    // Serial.println();
     BT.println();
     BT.flush();
    
@@ -310,11 +299,7 @@ void setupIR() {
 
 void setupBT() {
     Serial.println("BT setup:");
-    delay(2000);
     BT.begin(9600);
-    // while (BT.available()) {
-    //     BT.read();
-    // } 
 }
 
 void loopBT() {
@@ -326,7 +311,7 @@ void loopBT() {
     while (BT.available()) {
         char c = BT.read();
         Queue[end++] = c;
-        // BT.println(c);
+        // BT.println('r');
         Serial.print(c);
     }
 }
