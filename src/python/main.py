@@ -22,8 +22,8 @@ SERVER_URL = "http://140.112.175.18:5000/"
 # MAZE_FILE = "src/python/data/cross_maze.csv"
 MAZE_FILE = "src/python/data/t_maze.csv"
 # MAZE_FILE = "src/python/data/medium_maze.csv"
-MAZE_SRC = 0
-BT_PORT = "COM7"
+MAZE_SRC = 3
+BT_PORT = "COM4"
 MODE = "1"
 UID_FILE = "src/python/data/realUID.csv"
 slow_speed_set = {
@@ -77,45 +77,7 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
 
         deadline = time.time() + 70
         judge.start_game(team_name)
-        judge.send_all(UID_FILE)
-
-        sent_uid = set() 
-
-        while True:
-            car_msg = interface.fetch_info()
-            if car_msg == "": continue
-            if len(car_msg) > 6:
-                uid = car_msg[0:8]
-                if uid in sent_uid:
-                    print(f"Already sent {uid}, skip")
-                    continue
-
-                pos = route[0]
-                path_finder.set_current_pos(pos)
-                route = path_finder.find_optimal_route()
-                while True:
-                    car_msg = interface.fetch_info()
-                    if car_msg == "": continue
-                    if car_msg[0] == "t": break
-
-                if len(route) > 0:
-                    interface.send_instruction(path_finder.path(route[0])[1:])
-
-                judge.add_UID(uid, pos)
-                sent_uid.add(uid)
-            elif car_msg[0] == "t":
-                pos = route[0]
-                path_finder.set_current_pos(pos)
-                route = path_finder.find_optimal_route()
-                if len(route) > 0:
-                    interface.send_instruction(path_finder.path(route[0])[1:])
-                while len(car_msg) < 6:
-                    car_msg = interface.fetch_info()
-                
-                uid = car_msg[0:8]
-                print(uid)
-                judge.add_UID(uid, pos)
-                sent_uid.add(uid)
+        # judge.send_all(UID_FILE)
 
     elif mode == "1":
         log.info("Mode 1: Self-testing mode.")
@@ -127,51 +89,51 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
 
         deadline = time.time() + 70
 
-        sent_uid = set() 
+    sent_uid = set() 
 
-        while True:
-            car_msg = interface.fetch_info()
-            if car_msg == "": continue
-            if len(car_msg) > 6:
-                uid = car_msg[0:8]
-                if uid in sent_uid:
-                    print(f"Already sent {uid}, skip")
-                    continue
+    while True:
+        car_msg = interface.fetch_info()
+        if car_msg == "": continue
+        if len(car_msg) > 6:
+            uid = car_msg[0:8]
+            if uid in sent_uid:
+                print(f"Already sent {uid}, skip")
+                continue
 
-                # print(f"current car_msg: {car_msg}")
-                # print(f"current uid: {uid}")
-                path_finder.set_current_pos(route[0])
-                route = path_finder.find_optimal_route()
-                while True:
-                    car_msg = interface.fetch_info()
-                    if car_msg == "": continue
-                    # print("debug b")
-                    if car_msg[0] == "t": break
+            # print(f"current car_msg: {car_msg}")
+            # print(f"current uid: {uid}")
+            path_finder.set_current_pos(route[0])
+            route = path_finder.find_optimal_route()
+            while True:
+                car_msg = interface.fetch_info()
+                if car_msg == "": continue
+                # print("debug b")
+                if car_msg[0] == "t": break
 
-                if len(route) > 0:
-                    interface.send_instruction(path_finder.path(route[0])[1:])
+            if len(route) > 0:
+                interface.send_instruction(path_finder.path(route[0])[1:])
 
-                # print(f"route up: {route}")
-                # print(f"current uid: {uid}")
-                # print(f"current uid: {car_msg[0:8]}")
-                judge.add_UID(uid)
-                sent_uid.add(uid)
-            elif car_msg[0] == "t":
-                # print(f"We have received a t")
-                path_finder.set_current_pos(route[0])
-                route = path_finder.find_optimal_route()
-                if len(route) > 0:
-                    interface.send_instruction(path_finder.path(route[0])[1:])
-                # print(f"route down: {route}")
+            # print(f"route up: {route}")
+            # print(f"current uid: {uid}")
+            # print(f"current uid: {car_msg[0:8]}")
+            judge.add_UID(uid)
+            sent_uid.add(uid)
+        elif car_msg[0] == "t":
+            # print(f"We have received a t")
+            path_finder.set_current_pos(route[0])
+            route = path_finder.find_optimal_route()
+            if len(route) > 0:
+                interface.send_instruction(path_finder.path(route[0])[1:])
+            # print(f"route down: {route}")
 
-                while len(car_msg) < 6:
-                    car_msg = interface.fetch_info()
-                # print("debug c")
-                
-                uid = car_msg[0:8]
-                print(uid)
-                judge.add_UID(uid)
-                sent_uid.add(uid)
+            while len(car_msg) < 6:
+                car_msg = interface.fetch_info()
+            # print("debug c")
+            
+            uid = car_msg[0:8]
+            print(uid)
+            judge.add_UID(uid)
+            sent_uid.add(uid)
     else:
         log.error("Invalid mode")
         sys.exit(1)
