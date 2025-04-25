@@ -13,7 +13,7 @@ from node import Direction, Node
 graph = []
 
 dir_char = ["f", "r", "b", "l"]
-turn_time = [0, 1, 2, 1] # can be [0, 1, 2, 1]
+turn_time = [0, 0.7, 1, 0.7] # can be [0, 1, 2, 1]
 dcoords = [(0, 1), (-1, 0), (0, -1), (1, 0)] # N W S E
 
 def dtheta(s, t):
@@ -59,7 +59,7 @@ class Maze:
                 for j in range(len(maze[i])):
                     if maze[i][j] == "":
                         maze[i][j] = "0"
-                adjacency = [(int(maze[i][j]) - 1, int(maze[i][j + 4])) for j in range(1, 5)]
+                adjacency = [(int(maze[i][j]) - 1, int(maze[i][j + 4]) / 3) for j in range(1, 5)]
 
                 # NWSE -> 0123
                 adjacency[1], adjacency[2] = adjacency[2], adjacency[1]
@@ -80,6 +80,7 @@ class Maze:
         self.optimal_path = [["" for _ in range(V)] for _ in range(V)]
         self.visited = [False for _ in range(V)]
         self.current_pos = start
+        self.visited[start] = True
         coords = [(0, 0) for _ in range(V)]
 
         dijkstra(start, self.dis[start], self.graph, self.optimal_path[start], coords, flg = True)
@@ -148,6 +149,21 @@ class Maze:
             ret.append(id[min_end])
             min_end, max_score_msk = prev_pos[max_score_msk][min_end], max_score_msk & ~(1 << min_end)
 
+        if len(ret) == 0:
+            closest_dis, closest_u = 325325, -1
+            for i in self.key_vertex:
+                if not self.visited[i] and self.dis[self.current_pos][i][0] < closest_dis:
+                    closest_dis = self.dis[self.current_pos][i][0]
+                    closest_u = i
+
+            if closest_u != -1:
+                return [closest_u]
+
+            print("All nodes visited, returning to start")
+            
+            self.visited = [False for _ in range(len(self.visited))]
+            return [self.key_vertex[0]]
+
         return ret[::-1]
 
     def set_current_pos(self, pos: int):
@@ -169,13 +185,13 @@ class Maze:
                     log.warning(f"Invalid UID: {uid} at position {pos}")
 
 if __name__ == "__main__":
-    maze = Maze("src/python/data/cross_maze.csv", 0)
-    maze.mark_as_visited("src/python/data/realUID.csv")
+    maze = Maze("src/python/data/final_maze.csv", 23)
+    # maze.mark_as_visited("src/python/data/realUID.csv")
     maze.print_graph()
 
     print([(maze.value[u], u) for u in maze.key_vertex])
 
-    exit(0)
+    # exit(0)
 
     route = maze.find_optimal_route()
 
@@ -184,11 +200,9 @@ if __name__ == "__main__":
     import time
     import random
 
-    while True:
-        time.sleep(1)
-
+    for t in range(0, 71):
         s = time.time()
-        print(maze.find_optimal_route(random.randint(0, 4000)))
+        print(f"{t}: {maze.find_optimal_route(t)}")
         e = time.time()
         print(f"Time: {e - s:.2f} s")
         

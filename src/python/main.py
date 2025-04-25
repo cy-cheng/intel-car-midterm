@@ -19,12 +19,12 @@ log = logging.getLogger(__name__)
 # TODO : Fill in the following information
 TEAM_NAME = "我爸是 MVP"
 SERVER_URL = "http://140.112.175.18:5000/"
-# MAZE_FILE = "src/python/data/cross_maze.csv"
-MAZE_FILE = "src/python/data/t_maze.csv"
+# MAZE_FILE = "src/python/data/t_maze.csv"
+MAZE_FILE = "src/python/data/final_maze.csv"
 # MAZE_FILE = "src/python/data/medium_maze.csv"
-MAZE_SRC = 3
+MAZE_SRC = 23
 BT_PORT = "COM4"
-MODE = "1"
+MODE = "0"
 UID_FILE = "src/python/data/realUID.csv"
 slow_speed_set = {
     "adj1": 30,
@@ -67,6 +67,10 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
     #     while car_msg == "":
     #         car_msg = interface.fetch_info()
 
+    # interface.send_instruction("f")
+
+    # return
+
     if mode == "0":
         log.info("Mode 0: For treasure-hunting")
         judge = ScoreboardServer(team_name, UID_FILE, server_url)
@@ -76,6 +80,8 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
         interface.send_instruction(path_finder.path(route[0]))
 
         deadline = time.time() + 70
+        print(f"starting time: {deadline - 70}")
+        print(f"deadline: {deadline}")
         judge.start_game(team_name)
         # judge.send_all(UID_FILE)
 
@@ -91,10 +97,17 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
 
     sent_uid = set() 
 
+    times_up = False
+
     while True:
+        print(route)
+        if time.time() > deadline and not times_up:
+            times_up = True
+            log.info("**Time is up!**")
         car_msg = interface.fetch_info()
         if car_msg == "": continue
         if len(car_msg) > 6:
+            print(f"current time: {time.time()}")
             uid = car_msg[0:8]
             if uid in sent_uid:
                 print(f"Already sent {uid}, skip")
@@ -119,6 +132,7 @@ def main(mode: int, bt_port: str, team_name: str, server_url: str, maze_file: st
             judge.add_UID(uid)
             sent_uid.add(uid)
         elif car_msg[0] == "t":
+            print(f"current time: {time.time()}")
             # print(f"We have received a t")
             path_finder.set_current_pos(route[0])
             route = path_finder.find_optimal_route()
