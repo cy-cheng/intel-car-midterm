@@ -28,11 +28,11 @@ const double Avel = 200;
 const double Bvel = 210; 
 const double adj[4] = {0, -30, -100, -50};
 const double slow = 0.8;
-const double backSlow = 0.5;
+const double backSlow = 0.4;
 const double kd = 0.4;
 
 // Eyes
-const int irRead[] = {32, 28, 30, 38, 40};
+const int irRead[] = {32, 34, 36, 38, 40};
 const int irLed[] = {0, 0, 0, 0, 0};
 const int irNum = 5;
 
@@ -78,9 +78,8 @@ inline void setSpeed(int pos, int speed) {
 void setup() {
     Serial.begin(9600);
     setupRFID();
-    // setupMotor();
-    // setupIR();
-    // delay(1000);
+    setupMotor();
+    setupIR();
     setupBT();
 }
 
@@ -96,13 +95,10 @@ void loop() {
     loopWalking();
     // BT.println('c');
     loopRFID();
-    // loopBT();
-    // Serial.println("Hi");
+    loopBT();
 }
 
 inline void waitToStart() {
-    delay(5000);
-    BT.println('o');
     if (strflg) return;
     while(true) {
         if (BT.available()) {
@@ -132,11 +128,13 @@ void loopWalking() {
 
     prvl = suml;
     prvr = sumr;
-    if (suml >= 1 && sumr >= 1 && digitalRead(irRead[2]) == 1) {
+    if (suml >= 1 && sumr >= 1 && digitalRead(irRead[2])) {
         if (str < end) {
+            // BT.println(Queue[str]);
             carControl(Queue[str]);
             str++;
         } else {
+            str = end = 0;
             carControl('b');
             BT.println('t');
         }
@@ -156,8 +154,8 @@ void loopWalking() {
 inline void dynamicTurningRight() {
     setSpeed(PWMA, Avel * 0);
     setSpeed(PWMB, Bvel * slow);
-    delay(200);
-    while (digitalRead(irRead[2]) || digitalRead(irRead[3]) || !digitalRead(irRead[4])) {
+    delay(250);
+    while (digitalRead(irRead[2]) || !digitalRead(irRead[3]) || digitalRead(irRead[1])) {
         suml = updl(), sumr = updr();
         setSpeed(PWMA, Avel * 0);
         setSpeed(PWMB, Bvel * slow * 0.5);
@@ -169,8 +167,8 @@ inline void dynamicTurningRight() {
 inline void dynamicTurningLeft() {
     setSpeed(PWMA, Avel * slow);
     setSpeed(PWMB, Bvel * 0);
-    delay(200);
-    while (digitalRead(irRead[2]) || digitalRead(irRead[1]) || !digitalRead(irRead[0])) {
+    delay(250);
+    while (digitalRead(irRead[2]) || !digitalRead(irRead[1]) || digitalRead(irRead[3])) {
         suml = updl(), sumr = updr();
         setSpeed(PWMA, Avel * slow * 0.5);
         setSpeed(PWMB, Bvel * 0);
@@ -203,7 +201,7 @@ inline void goStraight() {
     setSpeed(PWMA, Aspeed * slow);
     setSpeed(PWMB, Bspeed * slow);
 
-    while (suml == 3 || sumr == 3) {
+    while (suml >= 1 && sumr >= 1 && digitalRead(irRead[2])) {
         suml = updl(), sumr = updr();
         setSpeed(PWMA, Avel * slow);
         setSpeed(PWMB, Bvel * slow);
@@ -221,7 +219,7 @@ inline void stopWalking() {
 inline void fixedTurningBack() {
     suml = updl();
     sumr = updr();
-    while (!digitalRead(irRead[4]) || digitalRead(irRead[0]) || digitalRead(irRead[1]) || digitalRead(irRead[2]) || digitalRead(irRead[3])) {
+    while (!digitalRead(irRead[4]) || digitalRead(irRead[1]) || digitalRead(irRead[2]) || digitalRead(irRead[3])) {
         setSpeed(PWMA, Avel * -backSlow);
         setSpeed(PWMB, Bvel * backSlow * 0.85);
         suml = updl(), sumr = updr();
@@ -265,25 +263,25 @@ void setupRFID() {
 }
 
 void loopRFID() {
-    mfrc522->PCD_Init();
+    // mfrc522->PCD_Init();
     // Serial.println('w');
 
     if (!mfrc522->PICC_IsNewCardPresent()) return;
     if (!mfrc522->PICC_ReadCardSerial()) return;
 
-    Serial.println(F("**Card Detected:**"));
+    // Serial.println(F("**Card Detected:**"));
     // BT.println(F("**Card Detected:**"));
     
-    Serial.print("ID: ");
+    // Serial.print("ID: ");
     // BT.print("ID: ");
     
     for (byte i = 0; i < mfrc522->uid.size; i++) {
         char buffer[3];
         sprintf(buffer, "%02X", mfrc522->uid.uidByte[i]);
-        Serial.print(buffer);
+        // Serial.print(buffer);
         BT.print(buffer);
     }
-    Serial.println();
+    // Serial.println();
     BT.println();
     BT.flush();
    
@@ -310,23 +308,19 @@ void setupIR() {
 
 void setupBT() {
     Serial.println("BT setup:");
-    delay(2000);
     BT.begin(9600);
-    // while (BT.available()) {
-    //     BT.read();
-    // } 
 }
 
 void loopBT() {
     if (Serial.available()) {
         char c = Serial.read();
         Serial.print(c);
-        BT.println(c);
+        // BT.println(c);
     }
     while (BT.available()) {
         char c = BT.read();
         Queue[end++] = c;
         // BT.println(c);
-        Serial.print(c);
+        // Serial.print(c);
     }
 }
