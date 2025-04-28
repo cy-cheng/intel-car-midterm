@@ -223,11 +223,11 @@ inline void carControl(char cmd) {
 }
 
 void setupRFID() {
-    Serial.println("RFID setup:");
+    // Serial.println("RFID setup:");
     SPI.begin();
     mfrc522 = new MFRC522(SS_PIN, RST_PIN);
     mfrc522->PCD_Init();
-    Serial.println(F("Read UID on a MIFARE PICC:"));
+    // Serial.println(F("Read UID on a MIFARE PICC:"));
 }
 
 void loopRFID() {
@@ -249,7 +249,7 @@ void loopRFID() {
 }
 
 void setupMotor() {
-    Serial.println("Motor setup:");
+    // Serial.println("Motor setup:");
     pinMode(PWMA, OUTPUT);
     pinMode(AIN1, OUTPUT);
     pinMode(AIN2, OUTPUT);
@@ -259,14 +259,14 @@ void setupMotor() {
 }
 
 void setupIR() {
-    Serial.println("IR setup:");
+    // Serial.println("IR setup:");
     for (int i = 0; i < irNum; i++) {
         pinMode(irRead[i], INPUT);
     }
 }
 
 void setupBT() {
-    Serial.println("BT setup:");
+    // Serial.println("BT setup:");
     BT.begin(9600);
 }
 
